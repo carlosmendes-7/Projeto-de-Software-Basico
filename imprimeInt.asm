@@ -48,8 +48,8 @@
 %endmacro
 
 section .bss
-    stackpointer resd 1
-    res          resd 1
+    stackpointer resd 1 ;usada na funcao imprimeInt
+    res          resd 1 ;usada na funcao imprimeInt
     
 section .data
     newline: dd 10
