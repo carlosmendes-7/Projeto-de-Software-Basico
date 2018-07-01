@@ -115,11 +115,8 @@
 
 	mov eax, dword[%1]
 
-	cmp eax, dword 0
-	je  endProgram
-
-	cmp eax, dword 10
-	je 	endProgram
+	cmp eax, dword 20
+	jl 	endProgram
 
 %endmacro
 
@@ -130,22 +127,22 @@
 	mov eax, %1
 
 	cmp eax, dword 43
-	je p1
+	je %%p1
 
 	cmp eax, dword 45
-	je p1
+	je %%p1
 
-	jmp p2
+	jmp %%p2
 
-	p1:
+	%%p1:
 		mov [return], dword 1
-		jmp endPrecedence
+		jmp %%endPrecedence
 
-	p2: 
+	%%p2: 
 		mov [return], dword 2
-		jmp endPrecedence
+		jmp %%endPrecedence
 
-	endPrecedence:
+	%%endPrecedence:
 
 
 %endmacro
@@ -159,33 +156,33 @@
 	mov ecx, %3									; ecx = operator
 
 	cmp eax, dword 43							; eax == '+'
-	je opAdd
+	je %%opAdd
 
 	cmp eax, dword 45							; eax == '-'
-	je opSub
+	je %%opSub
 
 	cmp eax, dword 42							; eax == '*'
-	je opMul
+	je %%opMul
 
-	jmp opDiv
+	jmp %%opDiv
 
-	opAdd:
+	%%opAdd:
 		add eax, ebx  							; eax += ebx
-		jmp ret 
+		jmp %%ret 
 
-	opSub:
+	%%opSub:
 		sub eax, ebx 							; eax -= ebx 
-		jmp ret
+		jmp %%ret
 
-	opMul:
+	%%opMul:
 		mul ebx      							; eax *= ebx 
-		jmp ret
+		jmp %%ret
 
-	opDiv:
+	%%opDiv:
 		div ebx	         						; eax /= ebx
-		jmp ret 
+		jmp %%ret 
 
-	ret:
+	%%ret:
 		mov [return], eax 					    ; return eax
 
 %endmacro
@@ -211,7 +208,9 @@ section .data
     base: 		 	dd 10
     numSize:		dd 0						; points to one position above the top of stack
     opSize: 		dd 0						; points to one position above the top of stack
+    debug:          db "debug", 10
     
+
 section .text
     global _start
 
@@ -220,6 +219,31 @@ _start:
     entrada input
 
     isEnd input                   				;check if it is an end character
+
+    saida input
+    saida newline
+
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, numStack
+    mov edx, 20
+    int 80h
+    saida newline
+
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, opStack
+    mov edx, 20
+    int 80h
+    saida newline
+
+    mov eax, 4
+    mov ebx, 1
+    mov ecx, debug
+    mov edx, 6
+    int 80h
+    saida newline
+    saida newline
     
     checkNum:
     
@@ -228,7 +252,7 @@ _start:
         ;push the number onto num stack 
         
         mov eax, [input]
-        sub eax, dword 48
+        ;sub eax, dword 48
         mov ebx,  [numSize]
         mov [numStack+ebx], eax
         add ebx, dword 1
@@ -298,7 +322,7 @@ _start:
 
 	    precedence [input]
 	    mov ecx, [return]
-	    mov precInput, ecx
+	    mov [precInput], ecx
 
         loop2:
 
@@ -381,13 +405,19 @@ _start:
         	applyOp [arg1], [arg2], [arg3]
         	mov eax, [return]				; eax = applyOp(arg1,arg2,arg3)
 
+            mov ebx, [numSize]
+            mov [numStack+ebx], eax         ; numStack.push(eax)
+            add ebx, dword 1                
+            mov [numSize], ebx              ; numSize += 1
+
         	jmp loop3
 
-        endloop3:
+        endLoop3:
 
         	mov eax, [numStack]
         	mov [res], eax
         	imprimeInt
+            saida newline
 
 	    	mov eax, 1
 	   		xor ebx, ebx
