@@ -1,0 +1,11 @@
+Running nasm and gdb:
+https://www.csee.umbc.edu/portal/help/nasm/nasm.shtml
+
+How To Compile a 32-bit Application Using gcc On the 64-bit Linux Version:
+https://www.cyberciti.biz/tips/compile-32bit-application-using-gcc-64-bit-linux.html
+
+Compiling problems "cannot find crt1.o":
+https://stackoverflow.com/a/16016792
+
+Git cheat sheet:
+https://www.git-tower.com/blog/git-cheat-sheet/
