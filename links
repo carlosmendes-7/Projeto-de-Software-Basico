@@ -1,3 +1,10 @@
+Instalar peda, para ajudar a ver os registradores e a memória durante o debug (https://github.com/longld/peda):
+
+git clone https://github.com/longld/peda.git ~/peda
+echo "source ~/peda/peda.py" >> ~/.gdbinit
+
+
+
 Running nasm and gdb:
 https://www.csee.umbc.edu/portal/help/nasm/nasm.shtml
 
