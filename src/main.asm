@@ -212,9 +212,9 @@ section .data
     
 
 section .text
-    global _start
+    global main
 
-_start:
+main:
 
     entrada input
 
@@ -258,7 +258,7 @@ _start:
         add ebx, dword 1
         mov [numSize], ebx
     
-        jmp _start
+        jmp main
     
     checkLParen:
     
@@ -271,7 +271,7 @@ _start:
         add ebx, dword 1
         mov [opSize], ebx
     
-        jmp _start
+        jmp main
     
     checkRParen:
     
@@ -316,7 +316,7 @@ _start:
 
         endloop:
     
-        jmp _start
+        jmp main
     
     checkOp:
 
@@ -376,7 +376,7 @@ _start:
         	add ebx, dword 1				
         	mov [opSize], ebx 				; opSize += 1
 
-        	jmp _start  
+        	jmp main  
         
     endProgram:
 
