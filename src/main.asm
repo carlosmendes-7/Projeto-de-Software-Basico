@@ -5,9 +5,7 @@
     mov edx, 1  ;qtd bytes
     int 80h
 %endmacro
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 %macro saida 1
     mov eax, 4     ;output
     mov ebx, 1     ;stdout
@@ -15,14 +13,13 @@
     mov edx, 1     ;qtd bytes do valor
     int 80h
 %endmacro
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro imprimeInt 0 ;imprime inteiro em [res] (base 10)
+%macro imprimeInt 0 ;imprime inteiro [res] na base que estiver em [base]
     %%itoa:
         mov [stackpointer], esp
         cmp dword[res], 0
-        je %%itoa.zero 
+        je %%itoa.zero
+        jl %%itoa.neg
     
     %%itoa.nonzero:
         xor edx, edx
@@ -47,121 +44,58 @@
     %%itoa.zero:
         push dword[res]
         jmp %%itoa.write
+
+    %%itoa.neg:
+    	saida minus
+    	neg dword[res]
+    	jmp %%itoa.nonzero
     
     %%fim.macro:
 %endmacro
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro isNum 1
-
-	mov eax, dword[%1]
-
-    cmp eax, dword 48
-    jl checkLParen
-    
-    cmp eax, dword 57
-    jg checkLParen
-    
-%endmacro
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro isLParen 1
-
-	mov eax, dword[%1]
-    
-    cmp eax, '('
-    jne checkRParen
-
-%endmacro 
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro isRParen 1
-
-	mov eax, dword[%1] 
-
-    cmp eax, ')'
-    jne checkOp
-    
-%endmacro
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro isOp 1
-
-	mov eax, dword[%1]
-    
-    cmp eax, '*'
-    je valid
-    
-    cmp eax, '/'
-    je valid
-    
-    cmp eax, '-'
-    je valid
-    
-    cmp eax, '+'
-    je valid
-    
-    jmp error
-
-%endmacro
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-%macro isEnd 1
-
-	mov eax, dword[%1]
-
-	cmp eax, dword 20
-	jl 	endProgram
-
-%endmacro
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 %macro precedence 1
 
-	mov eax, %1
+	; 0 precedence
+	cmp %1, dword '('
+	je %%p0
 
-	cmp eax, dword 43
+	; 1 precedence
+	cmp %1, dword '+'
+	je %%p1
+	cmp %1, dword '-'
 	je %%p1
 
-	cmp eax, dword 45
-	je %%p1
-
+	; 2 precedence
 	jmp %%p2
+
+	%%p0: 
+		mov [return], dword 0
+		jmp %%endPrecedence
 
 	%%p1:
 		mov [return], dword 1
 		jmp %%endPrecedence
 
-	%%p2: 
+	%%p2:
 		mov [return], dword 2
-		jmp %%endPrecedence
 
 	%%endPrecedence:
 
-
 %endmacro
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 %macro applyOp 3 
 
-	mov eax, %1									; eax = num1
-	mov ebx, %2									; ebx = num2
-	mov ecx, %3									; ecx = operator
+	mov eax, %1		; eax = num1
+	mov ebx, %2		; ebx = num2
+	mov ecx, %3		; ecx = operator
 
-	cmp eax, dword 43							; eax == '+'
+	cmp ecx, dword '+'
 	je %%opAdd
 
-	cmp eax, dword 45							; eax == '-'
+	cmp ecx, dword '-'
 	je %%opSub
 
-	cmp eax, dword 42							; eax == '*'
+	cmp ecx, dword '*'
 	je %%opMul
 
 	jmp %%opDiv
@@ -179,6 +113,7 @@
 		jmp %%ret
 
 	%%opDiv:
+		xor edx, edx
 		div ebx	         						; eax /= ebx
 		jmp %%ret 
 
@@ -186,247 +121,228 @@
 		mov [return], eax 					    ; return eax
 
 %endmacro
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+%macro opStack.push 1
+	mov ebx, [opSize]
+    mov [opStack+ebx*4], %1
+    inc ebx
+    mov [opSize], ebx
+%endmacro
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+%macro numStack.push 1
+	mov ebx, [numSize]
+    mov [numStack+ebx*4], %1
+    inc ebx
+    mov [numSize], ebx
+%endmacro
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+%macro getOperands 0
+	mov ebx, [numSize]				; ebx = numSize
+	dec ebx							; numStack.pop()
+	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
+	mov [arg2], ecx
+	dec ebx							; numStack.pop()
+	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
+	mov [arg1], ecx
+	mov [numSize], ebx 				; numSize -= 2
+%endmacro
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+%macro getOperator 0
+	mov ebx, [opSize]				; ebx = opStack.size()
+	dec ebx							; opStack.pop()
+	mov ecx, [opStack+ebx*4]		; ecx = opStack.top() 
+	mov [arg3], ecx
+	mov [opSize], ebx 				; opSize -= 1
+%endmacro
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 section .bss
 
     stackpointer 	resd 1
     res          	resd 1    
-    opStack		 	resd 500					; stack of operators
-    numStack	 	resd 500					; stack of numbers
+    opStack		 	resd 500 ; stack of operators
+    numStack	 	resd 500 ; stack of numbers
     input        	resd 1
-
-    return   	 	resd 1						; stores the return of macros
+    return   	 	resd 1 ; stores return of macros
     arg1		 	resd 1
     arg2		 	resd 1
     arg3 			resd 1
-    precInput	 	resd 1
     
 section .data
     newline: 	 	dd 10
+    minus:			dd 45
     base: 		 	dd 10
-    numSize:		dd 0						; points to one position above the top of stack
-    opSize: 		dd 0						; points to one position above the top of stack
-    debug:          db "debug", 10
+    numSize:		dd 0					; points to one position above top of stack
+    opSize: 		dd 0					; points to one position above top of stack
+    wfe:			db "Bem formatada", 10
+    bfe:			db "Erro de formatação", 10
     
-
 section .text
     global main
 
 main:
 
     entrada input
+    mov eax, dword[input]
 
-    isEnd input                   				;check if it is an end character
+    ;while it is a space character, receive another
+    cmp eax, dword ' '
+    je main
 
-    saida input
-    saida newline
+    ;jumps if it is an end character
+    cmp eax, dword 40
+	jl 	endProgram
+    
+    ;jumps if it isn't a digit
+    cmp eax, dword '0'
+    jl checkLParen
+    cmp eax, dword '9'
+    jg checkLParen
 
+    ;push the number onto numStack 
+    sub eax, dword '0'
+    numStack.push eax
+    
+    jmp main
+
+checkLParen:
+	;jumps if it isn't an opening parentheses
+    cmp eax, '('
+    jne checkRParen
+    
+    ;push opening parentheses onto opStack
+    opStack.push eax
+    jmp main
+
+checkRParen:
+	;check if it isn't a closing parentheses
+    cmp eax, ')'
+    jne checkOp
+    
+    loop1:
+
+    	;checks for balanced parentheses in the expression
+    	
+    	;checks if opStack is empty 
+   		mov ebx, [opSize]
+    	cmp ebx, dword 0
+    	je error
+
+    	;get operator from opStack to [arg3]
+    	getOperator
+
+    	;if operator is '(': break
+    	cmp [arg3], dword '('
+    	je endloop
+    	
+    	;else, get two operands from numStack to [arg1] and [arg2]
+    	getOperands
+
+    	applyOp [arg1], [arg2], [arg3] 
+    	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+
+    	;push result in numStack
+    	numStack.push edx
+
+    	jmp loop1
+
+    endloop:
+
+    jmp main
+
+checkOp:
+
+    precedence eax ;[return] = 1 para + e - ;[return] = 2 para * e /
+    mov edx, [return]
+
+    loop2:
+
+    	;checks if opStack is empty 
+    	mov ebx, [opSize]
+    	cmp ebx, dword 0
+    	je endLoop2
+
+    	;checks if top operator on opStack has same or greater precedence as [input]
+    	dec ebx				
+    	mov ecx, [opStack+ebx*4]
+    	precedence ecx
+    	cmp [return], edx
+
+    	;if precedence of top operator on opStack < precedence of [input]: break
+    	jl endLoop2
+
+    	;else, get operator from opStack to [arg3]
+    	getOperator
+
+    	;get two operands from numStack to [arg1] and [arg2]
+    	getOperands
+
+    	applyOp [arg1], [arg2], [arg3]
+    	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+
+    	;push result onto numStack
+    	numStack.push edx
+
+    	jmp loop2
+
+	endLoop2:
+		;push [input] onto opStack
+		mov eax, [input]
+		opStack.push eax
+
+    	jmp main  
+    
+endProgram:
+; while the operator stack is not empty:
+	loop3: 
+		;checks if opStack is empty 
+		mov ebx, [opSize]
+    	cmp ebx, dword 0
+    	je endLoop3
+
+    	;get operator from opStack to [arg3]
+    	getOperator
+
+    	;if operator is '(': error
+    	cmp [arg3], dword '('
+    	je error
+
+		;get two operands from numStack to [arg1] and [arg2]
+		getOperands
+
+    	applyOp [arg1], [arg2], [arg3]
+    	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+
+    	;push result onto numStack
+        numStack.push edx
+
+    	jmp loop3
+
+    endLoop3:
+
+    	mov eax, 4
+    	mov ebx, 1
+    	mov ecx, wfe
+    	mov edx, 14
+    	int 80h
+
+    	mov eax, [numStack]
+    	mov [res], eax
+    	imprimeInt
+        saida newline
+
+    	mov eax, 1
+   		xor ebx, ebx
+    	int 80h
+
+error:
     mov eax, 4
     mov ebx, 1
-    mov ecx, numStack
-    mov edx, 20
+    mov ecx, bfe
+    mov edx, 21
     int 80h
-    saida newline
 
-    mov eax, 4
-    mov ebx, 1
-    mov ecx, opStack
-    mov edx, 20
+    mov eax, 1
+    xor ebx, ebx
     int 80h
-    saida newline
-
-    mov eax, 4
-    mov ebx, 1
-    mov ecx, debug
-    mov edx, 6
-    int 80h
-    saida newline
-    saida newline
-    
-    checkNum:
-    
-        isNum input
-
-        ;push the number onto num stack 
-        
-        mov eax, [input]
-        ;sub eax, dword 48
-        mov ebx,  [numSize]
-        mov [numStack+ebx], eax
-        add ebx, dword 1
-        mov [numSize], ebx
-    
-        jmp main
-    
-    checkLParen:
-    
-        isLParen input
-        
-        ; push operator onto op stack
-        mov eax, [input]
-        mov ebx, [opSize]
-        mov [opStack+ebx], eax
-        add ebx, dword 1
-        mov [opSize], ebx
-    
-        jmp main
-    
-    checkRParen:
-    
-        isRParen input
-        
-        loop:
-
-        	; only checks for balanced parentheses in the expression
-        	
-        	; checks if the opStack is not empty 
-       		mov ebx, [opSize]				; ebx = opSize().size()
-        	cmp ebx, dword 0
-        	je error
-
-        	sub ebx, dword 1				; opStack.pop()
-        	mov eax, [opStack+ebx]			; eax = opStack.prevtop() 
-        	mov [arg3], eax
-        	mov [opSize], ebx 				; opSize -= 1
-
-        	cmp eax, dword 40				; (eax == '(')
-        	je endloop
-
-        	mov ebx, [numSize]
-        	sub ebx, dword 1				; numStack.pop()
-        	mov ecx, [numStack+ebx]			; ecx = numStack.prevtop()
-        	mov [arg1], ecx
-
-        	sub ebx, dword 1				; numStack.pop()
-        	mov edx, [numStack+ebx]			; edx = numStack.prevtop()
-        	mov [arg2], edx
-        	mov [numSize], ebx 				; numSize -= 2
-
-        	applyOp [arg1], [arg2], [arg3] 
-        	mov eax, [return]				; eax = applyOp(arg1,arg2,arg3)
-
-        	mov ebx, [numSize]
-        	mov [numStack+ebx], eax			; numStack.push(eax)
-        	add ebx, dword 1				
-        	mov [numSize], ebx 				; numSize += 1
-
-        	jmp loop
-
-        endloop:
-    
-        jmp main
-    
-    checkOp:
-
-	    precedence [input]
-	    mov ecx, [return]
-	    mov [precInput], ecx
-
-        loop2:
-
-        	; checks if the opStack is not empty 
-	    	mov ebx, [opSize]				; ebx = opSize
-	    	cmp ebx, dword 0
-	    	je endLoop2
-
-	    	sub ebx, dword 1				
-        	mov eax, [opStack+ebx]			; eax = opStack.top() 
-
-        	precedence eax
-        	mov eax, [return]
-        	mov ebx, [precInput]
-        	cmp eax, ebx
-
-        	; if precedence(opStack.top()) < precedence(inp) break
-        	jl endLoop2
-
-        	mov ebx, [numSize]				; ebx = numSize
-        	sub ebx, dword 1				; numStack.pop()
-        	mov ecx, [numStack+ebx]			; ecx = numStack.prevtop()
-        	mov [arg1], ecx
-
-        	sub ebx, dword 1				; numStack.pop()
-        	mov edx, [numStack+ebx]			; edx = numStack.prevtop()
-        	mov [arg2], edx
-        	mov [numSize], ebx 				; numSize -= 2
-
-        	mov ebx, [opSize]				; ebx = opSize
-        	sub ebx, dword 1				; opStack.pop()
-        	mov eax, [opStack+ebx]			; eax = opStack.prevtop() 
-        	mov [arg3], eax
-        	mov [opSize], ebx 				; opSize -= 1
-
-        	applyOp [arg1], [arg2], [arg3]
-        	mov eax, [return]				; eax = applyOp(arg1,arg2,arg3)
-
-        	mov ebx, [numSize]
-        	mov [numStack+ebx], eax			; numStack.push(eax)
-        	add ebx, dword 1				
-        	mov [numSize], ebx 				; numSize += 1
-
-        	jmp loop2
-
-    	endLoop2:
-
-    		mov eax, [input]
-    		mov ebx, [opSize]
-        	mov [opStack+ebx], eax			; opStack.push(eax)
-        	add ebx, dword 1				
-        	mov [opSize], ebx 				; opSize += 1
-
-        	jmp main  
-        
-    endProgram:
-
-    	loop3: 
-    		; checks if the opStack is not empty 
-    		mov ebx, [opSize]				; ebx = opSize
-	    	cmp ebx, dword 0
-	    	je endLoop3
-
-    		mov ebx, [numSize]				; ebx = numSize
-        	sub ebx, dword 1				; numStack.pop()
-        	mov ecx, [numStack+ebx]			; ecx = numStack.prevtop()
-        	mov [arg1], ecx
-
-        	sub ebx, dword 1				; numStack.pop()
-        	mov edx, [numStack+ebx]			; edx = numStack.prevtop()
-        	mov [arg2], edx
-        	mov [numSize], ebx 				; numSize -= 2
-
-        	mov ebx, [opSize]				; ebx = opSize
-        	sub ebx, dword 1				; opStack.pop()
-        	mov eax, [opStack+ebx]			; eax = opStack.prevtop() 
-        	mov [arg3], eax
-        	mov [opSize], ebx 				; opSize -= 1
-
-        	applyOp [arg1], [arg2], [arg3]
-        	mov eax, [return]				; eax = applyOp(arg1,arg2,arg3)
-
-            mov ebx, [numSize]
-            mov [numStack+ebx], eax         ; numStack.push(eax)
-            add ebx, dword 1                
-            mov [numSize], ebx              ; numSize += 1
-
-        	jmp loop3
-
-        endLoop3:
-
-        	mov eax, [numStack]
-        	mov [res], eax
-        	imprimeInt
-            saida newline
-
-	    	mov eax, 1
-	   		xor ebx, ebx
-	    	int 80h
-
-    error:
-        ;print invalid char
-        mov eax, 1
-        mov ebx, 0
-        int 80h
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
