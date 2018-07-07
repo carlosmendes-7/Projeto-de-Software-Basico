@@ -109,7 +109,7 @@
 		jmp %%ret
 
 	%%opMul:
-		mul ebx      							; eax *= ebx 
+		imul ebx      							; eax *= ebx 
 		jmp %%ret
 
 	%%opDiv:
@@ -120,8 +120,8 @@
 		mov ebx, dword 1  
 
 		%%nextDiv:
-		xor edx, edx
-		div ebx	         						; eax /= ebx
+		cdq
+		idiv ebx	         						; eax /= ebx
 		jmp %%ret 
 
 	%%ret:
