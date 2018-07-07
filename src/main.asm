@@ -113,6 +113,13 @@
 		jmp %%ret
 
 	%%opDiv:
+		cmp ebx, dword 0
+		jne %%nextDiv
+
+		mov [divZero], dword 1
+		mov ebx, dword 1  
+
+		%%nextDiv:
 		xor edx, edx
 		div ebx	         						; eax /= ebx
 		jmp %%ret 
@@ -168,6 +175,7 @@ section .bss
     arg3 			resd 1
     
 section .data
+	divZero			dd 0
     newline: 	 	dd 10
     minus:			dd 45
     base: 		 	dd 10
@@ -175,6 +183,7 @@ section .data
     opSize: 		dd 0					; points to one position above top of stack
     wfe:			db "Bem formatada", 10
     bfe:			db "Erro de formatação", 10
+    zfe				db "Erro de divisão por zero", 10
     
 section .text
     global main
@@ -225,7 +234,7 @@ checkRParen:
     	;checks if opStack is empty 
    		mov ebx, [opSize]
     	cmp ebx, dword 0
-    	je error
+    	je errorPar
 
     	;get operator from opStack to [arg3]
     	getOperator
@@ -302,9 +311,9 @@ endProgram:
     	;get operator from opStack to [arg3]
     	getOperator
 
-    	;if operator is '(': error
+    	;if operator is '(': errorPar
     	cmp [arg3], dword '('
-    	je error
+    	je errorPar
 
 		;get two operands from numStack to [arg1] and [arg2]
 		getOperands
@@ -319,6 +328,9 @@ endProgram:
 
     endLoop3:
 
+    	cmp [divZero], dword 1
+    	je errorZero
+
     	mov eax, 4
     	mov ebx, 1
     	mov ecx, wfe
@@ -330,17 +342,28 @@ endProgram:
     	imprimeInt
         saida newline
 
-    	mov eax, 1
-   		xor ebx, ebx
-    	int 80h
+    	jmp exit
 
-error:
+errorPar:
     mov eax, 4
     mov ebx, 1
     mov ecx, bfe
     mov edx, 21
     int 80h
 
+    jmp exit
+
+errorZero:
+
+	mov eax, 4
+	mov ebx, 1
+	mov ecx, zfe
+	mov edx, 27
+	int 80h
+
+	jmp exit 
+
+exit:
     mov eax, 1
     xor ebx, ebx
     int 80h
