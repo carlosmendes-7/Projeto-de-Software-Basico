@@ -122,7 +122,6 @@
 		%%nextDiv:
 		cdq
 		idiv ebx	         						; eax /= ebx
-		jmp %%ret 
 
 	%%ret:
 		mov [return], eax 					    ; return eax

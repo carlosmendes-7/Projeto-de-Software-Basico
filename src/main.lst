@@ -122,566 +122,562 @@
    122                                  		%%nextDiv:
    123                                  		cdq
    124                                  		idiv ebx	         						; eax /= ebx
-   125                                  		jmp %%ret 
-   126                                  
-   127                                  	%%ret:
-   128                                  		mov [return], eax 					    ; return eax
-   129                                  
-   130                                  %endmacro
-   131                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   132                                  %macro opStack.push 1
-   133                                  	mov ebx, [opSize]
-   134                                      mov [opStack+ebx*4], %1
-   135                                      inc ebx
-   136                                      mov [opSize], ebx
-   137                                  %endmacro
-   138                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   139                                  %macro numStack.push 1
-   140                                  	mov ebx, [numSize]
-   141                                      mov [numStack+ebx*4], %1
-   142                                      inc ebx
-   143                                      mov [numSize], ebx
-   144                                  %endmacro
-   145                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   146                                  %macro getOperands 0
-   147                                  	mov ebx, [numSize]				; ebx = numSize
-   148                                  	dec ebx							; numStack.pop()
-   149                                  	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
-   150                                  	mov [arg2], ecx
-   151                                  	dec ebx							; numStack.pop()
-   152                                  	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
-   153                                  	mov [arg1], ecx
-   154                                  	mov [numSize], ebx 				; numSize -= 2
-   155                                  %endmacro
-   156                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   157                                  %macro getOperator 0
-   158                                  	mov ebx, [opSize]				; ebx = opStack.size()
-   159                                  	dec ebx							; opStack.pop()
-   160                                  	mov ecx, [opStack+ebx*4]		; ecx = opStack.top() 
-   161                                  	mov [arg3], ecx
-   162                                  	mov [opSize], ebx 				; opSize -= 1
-   163                                  %endmacro
-   164                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-   165                                  section .bss
-   166                                  
-   167 00000000 <res 00000004>              stackpointer 	resd 1
-   168 00000004 <res 00000004>              res          	resd 1    
-   169 00000008 <res 000007D0>              opStack		 	resd 500 ; stack of operators
-   170 000007D8 <res 000007D0>              numStack	 	resd 500 ; stack of numbers
-   171 00000FA8 <res 00000004>              input        	resd 1
-   172 00000FAC <res 00000004>              return   	 	resd 1 ; stores return of macros
-   173 00000FB0 <res 00000004>              arg1		 	resd 1
-   174 00000FB4 <res 00000004>              arg2		 	resd 1
-   175 00000FB8 <res 00000004>              arg3 			resd 1
-   176                                      
-   177                                  section .data
-   178 00000000 00000000                	divZero			dd 0
-   179 00000004 0A000000                    newline: 	 	dd 10
-   180 00000008 2D000000                    minus:			dd 45
-   181 0000000C 0A000000                    base: 		 	dd 10
-   182 00000010 00000000                    numSize:		dd 0					; points to one position above top of stack
-   183 00000014 00000000                    opSize: 		dd 0					; points to one position above top of stack
-   184 00000018 42656D20666F726D61-         wfe:			db "Bem formatada", 10
-   185 00000021 746164610A         
-   186 00000026 4572726F2064652066-         bfe:			db "Erro de formatação", 10
-   187 0000002F 6F726D617461C3A7C3-
-   188 00000038 A36F0A             
-   189 0000003B 4572726F2064652064-         zfe				db "Erro de divisão por zero", 10
-   190 00000044 69766973C3A36F2070-
-   191 0000004D 6F72207A65726F0A   
-   192                                      
-   193                                  section .text
-   194                                      global main
-   195                                  
-   196                                  main:
-   197                                  
-   198                                      entrada input
-   199 00000000 B803000000          <1>  mov eax, 3
-   200 00000005 BB00000000          <1>  mov ebx, 0
-   201 0000000A B9[A80F0000]        <1>  mov ecx, %1
-   202 0000000F BA01000000          <1>  mov edx, 1
-   203 00000014 CD80                <1>  int 80h
-   204 00000016 A1[A80F0000]                mov eax, dword[input]
-   205                                  
-   206                                      ;while it is a space character, receive another
-   207 0000001B 83F820                      cmp eax, dword ' '
-   208 0000001E 74E0                        je main
-   209                                  
-   210                                      ;jumps if it is an end character
-   211 00000020 83F828                      cmp eax, dword 40
-   212 00000023 0F8C6F020000            	jl 	endProgram
-   213                                      
-   214                                      ;jumps if it isn't a digit
-   215 00000029 83F830                      cmp eax, dword '0'
-   216 0000002C 7C1E                        jl checkLParen
-   217 0000002E 83F839                      cmp eax, dword '9'
-   218 00000031 7F19                        jg checkLParen
-   219                                  
-   220                                      ;push the number onto numStack 
-   221 00000033 83E830                      sub eax, dword '0'
-   222                                      numStack.push eax
-   223 00000036 8B1D[10000000]      <1>  mov ebx, [numSize]
-   224 0000003C 89049D[D8070000]    <1>  mov [numStack+ebx*4], %1
-   225 00000043 43                  <1>  inc ebx
-   226 00000044 891D[10000000]      <1>  mov [numSize], ebx
-   227                                      
-   228 0000004A EBB4                        jmp main
-   229                                  
-   230                                  checkLParen:
-   231                                  	;jumps if it isn't an opening parentheses
-   232 0000004C 83F828                      cmp eax, '('
-   233 0000004F 7516                        jne checkRParen
-   234                                      
-   235                                      ;push opening parentheses onto opStack
-   236                                      opStack.push eax
-   237 00000051 8B1D[14000000]      <1>  mov ebx, [opSize]
-   238 00000057 89049D[08000000]    <1>  mov [opStack+ebx*4], %1
-   239 0000005E 43                  <1>  inc ebx
-   240 0000005F 891D[14000000]      <1>  mov [opSize], ebx
-   241 00000065 EB99                        jmp main
-   242                                  
-   243                                  checkRParen:
-   244                                  	;check if it isn't a closing parentheses
-   245 00000067 83F829                      cmp eax, ')'
-   246 0000006A 0F85CE000000                jne checkOp
-   247                                      
-   248                                      loop1:
-   249                                  
-   250                                      	;checks for balanced parentheses in the expression
-   251                                      	
-   252                                      	;checks if opStack is empty 
-   253 00000070 8B1D[14000000]             		mov ebx, [opSize]
-   254 00000076 83FB00                      	cmp ebx, dword 0
-   255 00000079 0F84A5030000                	je errorPar
-   256                                  
-   257                                      	;get operator from opStack to [arg3]
-   258                                      	getOperator
-   259 0000007F 8B1D[14000000]      <1>  mov ebx, [opSize]
-   260 00000085 4B                  <1>  dec ebx
-   261 00000086 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
-   262 0000008D 890D[B80F0000]      <1>  mov [arg3], ecx
-   263 00000093 891D[14000000]      <1>  mov [opSize], ebx
-   264                                  
-   265                                      	;if operator is '(': break
-   266 00000099 833D[B80F0000]28            	cmp [arg3], dword '('
-   267 000000A0 0F8493000000                	je endloop
-   268                                      	
-   269                                      	;else, get two operands from numStack to [arg1] and [arg2]
-   270                                      	getOperands
-   271 000000A6 8B1D[10000000]      <1>  mov ebx, [numSize]
-   272 000000AC 4B                  <1>  dec ebx
-   273 000000AD 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   274 000000B4 890D[B40F0000]      <1>  mov [arg2], ecx
-   275 000000BA 4B                  <1>  dec ebx
-   276 000000BB 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   277 000000C2 890D[B00F0000]      <1>  mov [arg1], ecx
-   278 000000C8 891D[10000000]      <1>  mov [numSize], ebx
-   279                                  
-   280                                      	applyOp [arg1], [arg2], [arg3] 
-   281                              <1> 
-   282 000000CE A1[B00F0000]        <1>  mov eax, %1
-   283 000000D3 8B1D[B40F0000]      <1>  mov ebx, %2
-   284 000000D9 8B0D[B80F0000]      <1>  mov ecx, %3
-   285                              <1> 
-   286 000000DF 83F92B              <1>  cmp ecx, dword '+'
-   287 000000E2 740C                <1>  je %%opAdd
-   288                              <1> 
-   289 000000E4 83F92D              <1>  cmp ecx, dword '-'
-   290 000000E7 740B                <1>  je %%opSub
-   291                              <1> 
-   292 000000E9 83F92A              <1>  cmp ecx, dword '*'
-   293 000000EC 740A                <1>  je %%opMul
-   294                              <1> 
-   295 000000EE EB0C                <1>  jmp %%opDiv
-   296                              <1> 
-   297                              <1>  %%opAdd:
-   298 000000F0 01D8                <1>  add eax, ebx
-   299 000000F2 EB21                <1>  jmp %%ret
-   300                              <1> 
-   301                              <1>  %%opSub:
-   302 000000F4 29D8                <1>  sub eax, ebx
-   303 000000F6 EB1D                <1>  jmp %%ret
-   304                              <1> 
-   305                              <1>  %%opMul:
-   306 000000F8 F7EB                <1>  imul ebx
-   307 000000FA EB19                <1>  jmp %%ret
-   308                              <1> 
-   309                              <1>  %%opDiv:
-   310 000000FC 83FB00              <1>  cmp ebx, dword 0
-   311 000000FF 750F                <1>  jne %%nextDiv
-   312                              <1> 
-   313 00000101 C705[00000000]0100- <1>  mov [divZero], dword 1
-   314 00000109 0000                <1>
-   315 0000010B BB01000000          <1>  mov ebx, dword 1
-   316                              <1> 
-   317                              <1>  %%nextDiv:
-   318 00000110 99                  <1>  cdq
-   319 00000111 F7FB                <1>  idiv ebx
-   320 00000113 EB00                <1>  jmp %%ret
-   321                              <1> 
-   322                              <1>  %%ret:
-   323 00000115 A3[AC0F0000]        <1>  mov [return], eax
-   324                              <1> 
-   325 0000011A 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
-   326                                  
-   327                                      	;push result in numStack
-   328                                      	numStack.push edx
-   329 00000120 8B1D[10000000]      <1>  mov ebx, [numSize]
-   330 00000126 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
-   331 0000012D 43                  <1>  inc ebx
-   332 0000012E 891D[10000000]      <1>  mov [numSize], ebx
+   125                                  
+   126                                  	%%ret:
+   127                                  		mov [return], eax 					    ; return eax
+   128                                  
+   129                                  %endmacro
+   130                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   131                                  %macro opStack.push 1
+   132                                  	mov ebx, [opSize]
+   133                                      mov [opStack+ebx*4], %1
+   134                                      inc ebx
+   135                                      mov [opSize], ebx
+   136                                  %endmacro
+   137                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   138                                  %macro numStack.push 1
+   139                                  	mov ebx, [numSize]
+   140                                      mov [numStack+ebx*4], %1
+   141                                      inc ebx
+   142                                      mov [numSize], ebx
+   143                                  %endmacro
+   144                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   145                                  %macro getOperands 0
+   146                                  	mov ebx, [numSize]				; ebx = numSize
+   147                                  	dec ebx							; numStack.pop()
+   148                                  	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
+   149                                  	mov [arg2], ecx
+   150                                  	dec ebx							; numStack.pop()
+   151                                  	mov ecx, [numStack+ebx*4]		; ecx = numStack.prevtop()
+   152                                  	mov [arg1], ecx
+   153                                  	mov [numSize], ebx 				; numSize -= 2
+   154                                  %endmacro
+   155                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   156                                  %macro getOperator 0
+   157                                  	mov ebx, [opSize]				; ebx = opStack.size()
+   158                                  	dec ebx							; opStack.pop()
+   159                                  	mov ecx, [opStack+ebx*4]		; ecx = opStack.top() 
+   160                                  	mov [arg3], ecx
+   161                                  	mov [opSize], ebx 				; opSize -= 1
+   162                                  %endmacro
+   163                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+   164                                  section .bss
+   165                                  
+   166 00000000 <res 00000004>              stackpointer 	resd 1
+   167 00000004 <res 00000004>              res          	resd 1    
+   168 00000008 <res 000007D0>              opStack		 	resd 500 ; stack of operators
+   169 000007D8 <res 000007D0>              numStack	 	resd 500 ; stack of numbers
+   170 00000FA8 <res 00000004>              input        	resd 1
+   171 00000FAC <res 00000004>              return   	 	resd 1 ; stores return of macros
+   172 00000FB0 <res 00000004>              arg1		 	resd 1
+   173 00000FB4 <res 00000004>              arg2		 	resd 1
+   174 00000FB8 <res 00000004>              arg3 			resd 1
+   175                                      
+   176                                  section .data
+   177 00000000 00000000                	divZero			dd 0
+   178 00000004 0A000000                    newline: 	 	dd 10
+   179 00000008 2D000000                    minus:			dd 45
+   180 0000000C 0A000000                    base: 		 	dd 10
+   181 00000010 00000000                    numSize:		dd 0					; points to one position above top of stack
+   182 00000014 00000000                    opSize: 		dd 0					; points to one position above top of stack
+   183 00000018 42656D20666F726D61-         wfe:			db "Bem formatada", 10
+   184 00000021 746164610A         
+   185 00000026 4572726F2064652066-         bfe:			db "Erro de formatação", 10
+   186 0000002F 6F726D617461C3A7C3-
+   187 00000038 A36F0A             
+   188 0000003B 4572726F2064652064-         zfe				db "Erro de divisão por zero", 10
+   189 00000044 69766973C3A36F2070-
+   190 0000004D 6F72207A65726F0A   
+   191                                      
+   192                                  section .text
+   193                                      global main
+   194                                  
+   195                                  main:
+   196                                  
+   197                                      entrada input
+   198 00000000 B803000000          <1>  mov eax, 3
+   199 00000005 BB00000000          <1>  mov ebx, 0
+   200 0000000A B9[A80F0000]        <1>  mov ecx, %1
+   201 0000000F BA01000000          <1>  mov edx, 1
+   202 00000014 CD80                <1>  int 80h
+   203 00000016 A1[A80F0000]                mov eax, dword[input]
+   204                                  
+   205                                      ;while it is a space character, receive another
+   206 0000001B 83F820                      cmp eax, dword ' '
+   207 0000001E 74E0                        je main
+   208                                  
+   209                                      ;jumps if it is an end character
+   210 00000020 83F828                      cmp eax, dword 40
+   211 00000023 0F8C6B020000            	jl 	endProgram
+   212                                      
+   213                                      ;jumps if it isn't a digit
+   214 00000029 83F830                      cmp eax, dword '0'
+   215 0000002C 7C1E                        jl checkLParen
+   216 0000002E 83F839                      cmp eax, dword '9'
+   217 00000031 7F19                        jg checkLParen
+   218                                  
+   219                                      ;push the number onto numStack 
+   220 00000033 83E830                      sub eax, dword '0'
+   221                                      numStack.push eax
+   222 00000036 8B1D[10000000]      <1>  mov ebx, [numSize]
+   223 0000003C 89049D[D8070000]    <1>  mov [numStack+ebx*4], %1
+   224 00000043 43                  <1>  inc ebx
+   225 00000044 891D[10000000]      <1>  mov [numSize], ebx
+   226                                      
+   227 0000004A EBB4                        jmp main
+   228                                  
+   229                                  checkLParen:
+   230                                  	;jumps if it isn't an opening parentheses
+   231 0000004C 83F828                      cmp eax, '('
+   232 0000004F 7516                        jne checkRParen
+   233                                      
+   234                                      ;push opening parentheses onto opStack
+   235                                      opStack.push eax
+   236 00000051 8B1D[14000000]      <1>  mov ebx, [opSize]
+   237 00000057 89049D[08000000]    <1>  mov [opStack+ebx*4], %1
+   238 0000005E 43                  <1>  inc ebx
+   239 0000005F 891D[14000000]      <1>  mov [opSize], ebx
+   240 00000065 EB99                        jmp main
+   241                                  
+   242                                  checkRParen:
+   243                                  	;check if it isn't a closing parentheses
+   244 00000067 83F829                      cmp eax, ')'
+   245 0000006A 0F85CC000000                jne checkOp
+   246                                      
+   247                                      loop1:
+   248                                  
+   249                                      	;checks for balanced parentheses in the expression
+   250                                      	
+   251                                      	;checks if opStack is empty 
+   252 00000070 8B1D[14000000]             		mov ebx, [opSize]
+   253 00000076 83FB00                      	cmp ebx, dword 0
+   254 00000079 0F849F030000                	je errorPar
+   255                                  
+   256                                      	;get operator from opStack to [arg3]
+   257                                      	getOperator
+   258 0000007F 8B1D[14000000]      <1>  mov ebx, [opSize]
+   259 00000085 4B                  <1>  dec ebx
+   260 00000086 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
+   261 0000008D 890D[B80F0000]      <1>  mov [arg3], ecx
+   262 00000093 891D[14000000]      <1>  mov [opSize], ebx
+   263                                  
+   264                                      	;if operator is '(': break
+   265 00000099 833D[B80F0000]28            	cmp [arg3], dword '('
+   266 000000A0 0F8491000000                	je endloop
+   267                                      	
+   268                                      	;else, get two operands from numStack to [arg1] and [arg2]
+   269                                      	getOperands
+   270 000000A6 8B1D[10000000]      <1>  mov ebx, [numSize]
+   271 000000AC 4B                  <1>  dec ebx
+   272 000000AD 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   273 000000B4 890D[B40F0000]      <1>  mov [arg2], ecx
+   274 000000BA 4B                  <1>  dec ebx
+   275 000000BB 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   276 000000C2 890D[B00F0000]      <1>  mov [arg1], ecx
+   277 000000C8 891D[10000000]      <1>  mov [numSize], ebx
+   278                                  
+   279                                      	applyOp [arg1], [arg2], [arg3] 
+   280                              <1> 
+   281 000000CE A1[B00F0000]        <1>  mov eax, %1
+   282 000000D3 8B1D[B40F0000]      <1>  mov ebx, %2
+   283 000000D9 8B0D[B80F0000]      <1>  mov ecx, %3
+   284                              <1> 
+   285 000000DF 83F92B              <1>  cmp ecx, dword '+'
+   286 000000E2 740C                <1>  je %%opAdd
+   287                              <1> 
+   288 000000E4 83F92D              <1>  cmp ecx, dword '-'
+   289 000000E7 740B                <1>  je %%opSub
+   290                              <1> 
+   291 000000E9 83F92A              <1>  cmp ecx, dword '*'
+   292 000000EC 740A                <1>  je %%opMul
+   293                              <1> 
+   294 000000EE EB0C                <1>  jmp %%opDiv
+   295                              <1> 
+   296                              <1>  %%opAdd:
+   297 000000F0 01D8                <1>  add eax, ebx
+   298 000000F2 EB1F                <1>  jmp %%ret
+   299                              <1> 
+   300                              <1>  %%opSub:
+   301 000000F4 29D8                <1>  sub eax, ebx
+   302 000000F6 EB1B                <1>  jmp %%ret
+   303                              <1> 
+   304                              <1>  %%opMul:
+   305 000000F8 F7EB                <1>  imul ebx
+   306 000000FA EB17                <1>  jmp %%ret
+   307                              <1> 
+   308                              <1>  %%opDiv:
+   309 000000FC 83FB00              <1>  cmp ebx, dword 0
+   310 000000FF 750F                <1>  jne %%nextDiv
+   311                              <1> 
+   312 00000101 C705[00000000]0100- <1>  mov [divZero], dword 1
+   313 00000109 0000                <1>
+   314 0000010B BB01000000          <1>  mov ebx, dword 1
+   315                              <1> 
+   316                              <1>  %%nextDiv:
+   317 00000110 99                  <1>  cdq
+   318 00000111 F7FB                <1>  idiv ebx
+   319                              <1> 
+   320                              <1>  %%ret:
+   321 00000113 A3[AC0F0000]        <1>  mov [return], eax
+   322                              <1> 
+   323 00000118 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+   324                                  
+   325                                      	;push result in numStack
+   326                                      	numStack.push edx
+   327 0000011E 8B1D[10000000]      <1>  mov ebx, [numSize]
+   328 00000124 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
+   329 0000012B 43                  <1>  inc ebx
+   330 0000012C 891D[10000000]      <1>  mov [numSize], ebx
+   331                                  
+   332 00000132 E939FFFFFF                  	jmp loop1
    333                                  
-   334 00000134 E937FFFFFF                  	jmp loop1
+   334                                      endloop:
    335                                  
-   336                                      endloop:
+   336 00000137 E9C4FEFFFF                  jmp main
    337                                  
-   338 00000139 E9C2FEFFFF                  jmp main
+   338                                  checkOp:
    339                                  
-   340                                  checkOp:
-   341                                  
-   342                                      precedence eax ;[return] = 1 para + e - ;[return] = 2 para * e /
-   343                              <1> 
-   344                              <1> 
-   345 0000013E 83F828              <1>  cmp %1, dword '('
-   346 00000141 740C                <1>  je %%p0
-   347                              <1> 
-   348                              <1> 
-   349 00000143 83F82B              <1>  cmp %1, dword '+'
-   350 00000146 7413                <1>  je %%p1
-   351 00000148 83F82D              <1>  cmp %1, dword '-'
-   352 0000014B 740E                <1>  je %%p1
-   353                              <1> 
+   340                                      precedence eax ;[return] = 1 para + e - ;[return] = 2 para * e /
+   341                              <1> 
+   342                              <1> 
+   343 0000013C 83F828              <1>  cmp %1, dword '('
+   344 0000013F 740C                <1>  je %%p0
+   345                              <1> 
+   346                              <1> 
+   347 00000141 83F82B              <1>  cmp %1, dword '+'
+   348 00000144 7413                <1>  je %%p1
+   349 00000146 83F82D              <1>  cmp %1, dword '-'
+   350 00000149 740E                <1>  je %%p1
+   351                              <1> 
+   352                              <1> 
+   353 0000014B EB18                <1>  jmp %%p2
    354                              <1> 
-   355 0000014D EB18                <1>  jmp %%p2
-   356                              <1> 
-   357                              <1>  %%p0:
-   358 0000014F C705[AC0F0000]0000- <1>  mov [return], dword 0
-   359 00000157 0000                <1>
-   360 00000159 EB16                <1>  jmp %%endPrecedence
-   361                              <1> 
-   362                              <1>  %%p1:
-   363 0000015B C705[AC0F0000]0100- <1>  mov [return], dword 1
-   364 00000163 0000                <1>
-   365 00000165 EB0A                <1>  jmp %%endPrecedence
-   366                              <1> 
-   367                              <1>  %%p2:
-   368 00000167 C705[AC0F0000]0200- <1>  mov [return], dword 2
-   369 0000016F 0000                <1>
+   355                              <1>  %%p0:
+   356 0000014D C705[AC0F0000]0000- <1>  mov [return], dword 0
+   357 00000155 0000                <1>
+   358 00000157 EB16                <1>  jmp %%endPrecedence
+   359                              <1> 
+   360                              <1>  %%p1:
+   361 00000159 C705[AC0F0000]0100- <1>  mov [return], dword 1
+   362 00000161 0000                <1>
+   363 00000163 EB0A                <1>  jmp %%endPrecedence
+   364                              <1> 
+   365                              <1>  %%p2:
+   366 00000165 C705[AC0F0000]0200- <1>  mov [return], dword 2
+   367 0000016D 0000                <1>
+   368                              <1> 
+   369                              <1>  %%endPrecedence:
    370                              <1> 
-   371                              <1>  %%endPrecedence:
-   372                              <1> 
-   373 00000171 8B15[AC0F0000]              mov edx, [return]
+   371 0000016F 8B15[AC0F0000]              mov edx, [return]
+   372                                  
+   373                                      loop2:
    374                                  
-   375                                      loop2:
-   376                                  
-   377                                      	;checks if opStack is empty 
-   378 00000177 8B1D[14000000]              	mov ebx, [opSize]
-   379 0000017D 83FB00                      	cmp ebx, dword 0
-   380 00000180 0F84F4000000                	je endLoop2
-   381                                  
-   382                                      	;checks if top operator on opStack has same or greater precedence as [input]
-   383 00000186 4B                          	dec ebx				
-   384 00000187 8B0C9D[08000000]            	mov ecx, [opStack+ebx*4]
-   385                                      	precedence ecx
-   386                              <1> 
-   387                              <1> 
-   388 0000018E 83F928              <1>  cmp %1, dword '('
-   389 00000191 740C                <1>  je %%p0
-   390                              <1> 
-   391                              <1> 
-   392 00000193 83F92B              <1>  cmp %1, dword '+'
-   393 00000196 7413                <1>  je %%p1
-   394 00000198 83F92D              <1>  cmp %1, dword '-'
-   395 0000019B 740E                <1>  je %%p1
-   396                              <1> 
+   375                                      	;checks if opStack is empty 
+   376 00000175 8B1D[14000000]              	mov ebx, [opSize]
+   377 0000017B 83FB00                      	cmp ebx, dword 0
+   378 0000017E 0F84F2000000                	je endLoop2
+   379                                  
+   380                                      	;checks if top operator on opStack has same or greater precedence as [input]
+   381 00000184 4B                          	dec ebx				
+   382 00000185 8B0C9D[08000000]            	mov ecx, [opStack+ebx*4]
+   383                                      	precedence ecx
+   384                              <1> 
+   385                              <1> 
+   386 0000018C 83F928              <1>  cmp %1, dword '('
+   387 0000018F 740C                <1>  je %%p0
+   388                              <1> 
+   389                              <1> 
+   390 00000191 83F92B              <1>  cmp %1, dword '+'
+   391 00000194 7413                <1>  je %%p1
+   392 00000196 83F92D              <1>  cmp %1, dword '-'
+   393 00000199 740E                <1>  je %%p1
+   394                              <1> 
+   395                              <1> 
+   396 0000019B EB18                <1>  jmp %%p2
    397                              <1> 
-   398 0000019D EB18                <1>  jmp %%p2
-   399                              <1> 
-   400                              <1>  %%p0:
-   401 0000019F C705[AC0F0000]0000- <1>  mov [return], dword 0
-   402 000001A7 0000                <1>
-   403 000001A9 EB16                <1>  jmp %%endPrecedence
-   404                              <1> 
-   405                              <1>  %%p1:
-   406 000001AB C705[AC0F0000]0100- <1>  mov [return], dword 1
-   407 000001B3 0000                <1>
-   408 000001B5 EB0A                <1>  jmp %%endPrecedence
-   409                              <1> 
-   410                              <1>  %%p2:
-   411 000001B7 C705[AC0F0000]0200- <1>  mov [return], dword 2
-   412 000001BF 0000                <1>
+   398                              <1>  %%p0:
+   399 0000019D C705[AC0F0000]0000- <1>  mov [return], dword 0
+   400 000001A5 0000                <1>
+   401 000001A7 EB16                <1>  jmp %%endPrecedence
+   402                              <1> 
+   403                              <1>  %%p1:
+   404 000001A9 C705[AC0F0000]0100- <1>  mov [return], dword 1
+   405 000001B1 0000                <1>
+   406 000001B3 EB0A                <1>  jmp %%endPrecedence
+   407                              <1> 
+   408                              <1>  %%p2:
+   409 000001B5 C705[AC0F0000]0200- <1>  mov [return], dword 2
+   410 000001BD 0000                <1>
+   411                              <1> 
+   412                              <1>  %%endPrecedence:
    413                              <1> 
-   414                              <1>  %%endPrecedence:
-   415                              <1> 
-   416 000001C1 3915[AC0F0000]              	cmp [return], edx
-   417                                  
-   418                                      	;if precedence of top operator on opStack < precedence of [input]: break
-   419 000001C7 0F8CAD000000                	jl endLoop2
-   420                                  
-   421                                      	;else, get operator from opStack to [arg3]
-   422                                      	getOperator
-   423 000001CD 8B1D[14000000]      <1>  mov ebx, [opSize]
-   424 000001D3 4B                  <1>  dec ebx
-   425 000001D4 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
-   426 000001DB 890D[B80F0000]      <1>  mov [arg3], ecx
-   427 000001E1 891D[14000000]      <1>  mov [opSize], ebx
-   428                                  
-   429                                      	;get two operands from numStack to [arg1] and [arg2]
-   430                                      	getOperands
-   431 000001E7 8B1D[10000000]      <1>  mov ebx, [numSize]
-   432 000001ED 4B                  <1>  dec ebx
-   433 000001EE 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   434 000001F5 890D[B40F0000]      <1>  mov [arg2], ecx
-   435 000001FB 4B                  <1>  dec ebx
-   436 000001FC 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   437 00000203 890D[B00F0000]      <1>  mov [arg1], ecx
-   438 00000209 891D[10000000]      <1>  mov [numSize], ebx
-   439                                  
-   440                                      	applyOp [arg1], [arg2], [arg3]
-   441                              <1> 
-   442 0000020F A1[B00F0000]        <1>  mov eax, %1
-   443 00000214 8B1D[B40F0000]      <1>  mov ebx, %2
-   444 0000021A 8B0D[B80F0000]      <1>  mov ecx, %3
-   445                              <1> 
-   446 00000220 83F92B              <1>  cmp ecx, dword '+'
-   447 00000223 740C                <1>  je %%opAdd
-   448                              <1> 
-   449 00000225 83F92D              <1>  cmp ecx, dword '-'
-   450 00000228 740B                <1>  je %%opSub
-   451                              <1> 
-   452 0000022A 83F92A              <1>  cmp ecx, dword '*'
-   453 0000022D 740A                <1>  je %%opMul
+   414 000001BF 3915[AC0F0000]              	cmp [return], edx
+   415                                  
+   416                                      	;if precedence of top operator on opStack < precedence of [input]: break
+   417 000001C5 0F8CAB000000                	jl endLoop2
+   418                                  
+   419                                      	;else, get operator from opStack to [arg3]
+   420                                      	getOperator
+   421 000001CB 8B1D[14000000]      <1>  mov ebx, [opSize]
+   422 000001D1 4B                  <1>  dec ebx
+   423 000001D2 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
+   424 000001D9 890D[B80F0000]      <1>  mov [arg3], ecx
+   425 000001DF 891D[14000000]      <1>  mov [opSize], ebx
+   426                                  
+   427                                      	;get two operands from numStack to [arg1] and [arg2]
+   428                                      	getOperands
+   429 000001E5 8B1D[10000000]      <1>  mov ebx, [numSize]
+   430 000001EB 4B                  <1>  dec ebx
+   431 000001EC 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   432 000001F3 890D[B40F0000]      <1>  mov [arg2], ecx
+   433 000001F9 4B                  <1>  dec ebx
+   434 000001FA 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   435 00000201 890D[B00F0000]      <1>  mov [arg1], ecx
+   436 00000207 891D[10000000]      <1>  mov [numSize], ebx
+   437                                  
+   438                                      	applyOp [arg1], [arg2], [arg3]
+   439                              <1> 
+   440 0000020D A1[B00F0000]        <1>  mov eax, %1
+   441 00000212 8B1D[B40F0000]      <1>  mov ebx, %2
+   442 00000218 8B0D[B80F0000]      <1>  mov ecx, %3
+   443                              <1> 
+   444 0000021E 83F92B              <1>  cmp ecx, dword '+'
+   445 00000221 740C                <1>  je %%opAdd
+   446                              <1> 
+   447 00000223 83F92D              <1>  cmp ecx, dword '-'
+   448 00000226 740B                <1>  je %%opSub
+   449                              <1> 
+   450 00000228 83F92A              <1>  cmp ecx, dword '*'
+   451 0000022B 740A                <1>  je %%opMul
+   452                              <1> 
+   453 0000022D EB0C                <1>  jmp %%opDiv
    454                              <1> 
-   455 0000022F EB0C                <1>  jmp %%opDiv
-   456                              <1> 
-   457                              <1>  %%opAdd:
-   458 00000231 01D8                <1>  add eax, ebx
-   459 00000233 EB21                <1>  jmp %%ret
-   460                              <1> 
-   461                              <1>  %%opSub:
-   462 00000235 29D8                <1>  sub eax, ebx
-   463 00000237 EB1D                <1>  jmp %%ret
-   464                              <1> 
-   465                              <1>  %%opMul:
-   466 00000239 F7EB                <1>  imul ebx
-   467 0000023B EB19                <1>  jmp %%ret
-   468                              <1> 
-   469                              <1>  %%opDiv:
-   470 0000023D 83FB00              <1>  cmp ebx, dword 0
-   471 00000240 750F                <1>  jne %%nextDiv
-   472                              <1> 
-   473 00000242 C705[00000000]0100- <1>  mov [divZero], dword 1
-   474 0000024A 0000                <1>
-   475 0000024C BB01000000          <1>  mov ebx, dword 1
-   476                              <1> 
-   477                              <1>  %%nextDiv:
-   478 00000251 99                  <1>  cdq
-   479 00000252 F7FB                <1>  idiv ebx
-   480 00000254 EB00                <1>  jmp %%ret
+   455                              <1>  %%opAdd:
+   456 0000022F 01D8                <1>  add eax, ebx
+   457 00000231 EB1F                <1>  jmp %%ret
+   458                              <1> 
+   459                              <1>  %%opSub:
+   460 00000233 29D8                <1>  sub eax, ebx
+   461 00000235 EB1B                <1>  jmp %%ret
+   462                              <1> 
+   463                              <1>  %%opMul:
+   464 00000237 F7EB                <1>  imul ebx
+   465 00000239 EB17                <1>  jmp %%ret
+   466                              <1> 
+   467                              <1>  %%opDiv:
+   468 0000023B 83FB00              <1>  cmp ebx, dword 0
+   469 0000023E 750F                <1>  jne %%nextDiv
+   470                              <1> 
+   471 00000240 C705[00000000]0100- <1>  mov [divZero], dword 1
+   472 00000248 0000                <1>
+   473 0000024A BB01000000          <1>  mov ebx, dword 1
+   474                              <1> 
+   475                              <1>  %%nextDiv:
+   476 0000024F 99                  <1>  cdq
+   477 00000250 F7FB                <1>  idiv ebx
+   478                              <1> 
+   479                              <1>  %%ret:
+   480 00000252 A3[AC0F0000]        <1>  mov [return], eax
    481                              <1> 
-   482                              <1>  %%ret:
-   483 00000256 A3[AC0F0000]        <1>  mov [return], eax
-   484                              <1> 
-   485 0000025B 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
-   486                                  
-   487                                      	;push result onto numStack
-   488                                      	numStack.push edx
-   489 00000261 8B1D[10000000]      <1>  mov ebx, [numSize]
-   490 00000267 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
-   491 0000026E 43                  <1>  inc ebx
-   492 0000026F 891D[10000000]      <1>  mov [numSize], ebx
-   493                                  
-   494 00000275 E9FDFEFFFF                  	jmp loop2
-   495                                  
-   496                                  	endLoop2:
-   497                                  		;push [input] onto opStack
-   498 0000027A A1[A80F0000]            		mov eax, [input]
-   499                                  		opStack.push eax
-   500 0000027F 8B1D[14000000]      <1>  mov ebx, [opSize]
-   501 00000285 89049D[08000000]    <1>  mov [opStack+ebx*4], %1
-   502 0000028C 43                  <1>  inc ebx
-   503 0000028D 891D[14000000]      <1>  mov [opSize], ebx
-   504                                  
-   505 00000293 E968FDFFFF                  	jmp main  
-   506                                      
-   507                                  endProgram:
-   508                                  ; while the operator stack is not empty:
-   509                                  	loop3: 
-   510                                  		;checks if opStack is empty 
-   511 00000298 8B1D[14000000]          		mov ebx, [opSize]
-   512 0000029E 83FB00                      	cmp ebx, dword 0
-   513 000002A1 0F84BA000000                	je endLoop3
-   514                                  
-   515                                      	;get operator from opStack to [arg3]
-   516                                      	getOperator
-   517 000002A7 8B1D[14000000]      <1>  mov ebx, [opSize]
-   518 000002AD 4B                  <1>  dec ebx
-   519 000002AE 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
-   520 000002B5 890D[B80F0000]      <1>  mov [arg3], ecx
-   521 000002BB 891D[14000000]      <1>  mov [opSize], ebx
-   522                                  
-   523                                      	;if operator is '(': errorPar
-   524 000002C1 833D[B80F0000]28            	cmp [arg3], dword '('
-   525 000002C8 0F8456010000                	je errorPar
-   526                                  
-   527                                  		;get two operands from numStack to [arg1] and [arg2]
-   528                                  		getOperands
-   529 000002CE 8B1D[10000000]      <1>  mov ebx, [numSize]
-   530 000002D4 4B                  <1>  dec ebx
-   531 000002D5 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   532 000002DC 890D[B40F0000]      <1>  mov [arg2], ecx
-   533 000002E2 4B                  <1>  dec ebx
-   534 000002E3 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
-   535 000002EA 890D[B00F0000]      <1>  mov [arg1], ecx
-   536 000002F0 891D[10000000]      <1>  mov [numSize], ebx
-   537                                  
-   538                                      	applyOp [arg1], [arg2], [arg3]
-   539                              <1> 
-   540 000002F6 A1[B00F0000]        <1>  mov eax, %1
-   541 000002FB 8B1D[B40F0000]      <1>  mov ebx, %2
-   542 00000301 8B0D[B80F0000]      <1>  mov ecx, %3
+   482 00000257 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+   483                                  
+   484                                      	;push result onto numStack
+   485                                      	numStack.push edx
+   486 0000025D 8B1D[10000000]      <1>  mov ebx, [numSize]
+   487 00000263 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
+   488 0000026A 43                  <1>  inc ebx
+   489 0000026B 891D[10000000]      <1>  mov [numSize], ebx
+   490                                  
+   491 00000271 E9FFFEFFFF                  	jmp loop2
+   492                                  
+   493                                  	endLoop2:
+   494                                  		;push [input] onto opStack
+   495 00000276 A1[A80F0000]            		mov eax, [input]
+   496                                  		opStack.push eax
+   497 0000027B 8B1D[14000000]      <1>  mov ebx, [opSize]
+   498 00000281 89049D[08000000]    <1>  mov [opStack+ebx*4], %1
+   499 00000288 43                  <1>  inc ebx
+   500 00000289 891D[14000000]      <1>  mov [opSize], ebx
+   501                                  
+   502 0000028F E96CFDFFFF                  	jmp main  
+   503                                      
+   504                                  endProgram:
+   505                                  ; while the operator stack is not empty:
+   506                                  	loop3: 
+   507                                  		;checks if opStack is empty 
+   508 00000294 8B1D[14000000]          		mov ebx, [opSize]
+   509 0000029A 83FB00                      	cmp ebx, dword 0
+   510 0000029D 0F84B8000000                	je endLoop3
+   511                                  
+   512                                      	;get operator from opStack to [arg3]
+   513                                      	getOperator
+   514 000002A3 8B1D[14000000]      <1>  mov ebx, [opSize]
+   515 000002A9 4B                  <1>  dec ebx
+   516 000002AA 8B0C9D[08000000]    <1>  mov ecx, [opStack+ebx*4]
+   517 000002B1 890D[B80F0000]      <1>  mov [arg3], ecx
+   518 000002B7 891D[14000000]      <1>  mov [opSize], ebx
+   519                                  
+   520                                      	;if operator is '(': errorPar
+   521 000002BD 833D[B80F0000]28            	cmp [arg3], dword '('
+   522 000002C4 0F8454010000                	je errorPar
+   523                                  
+   524                                  		;get two operands from numStack to [arg1] and [arg2]
+   525                                  		getOperands
+   526 000002CA 8B1D[10000000]      <1>  mov ebx, [numSize]
+   527 000002D0 4B                  <1>  dec ebx
+   528 000002D1 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   529 000002D8 890D[B40F0000]      <1>  mov [arg2], ecx
+   530 000002DE 4B                  <1>  dec ebx
+   531 000002DF 8B0C9D[D8070000]    <1>  mov ecx, [numStack+ebx*4]
+   532 000002E6 890D[B00F0000]      <1>  mov [arg1], ecx
+   533 000002EC 891D[10000000]      <1>  mov [numSize], ebx
+   534                                  
+   535                                      	applyOp [arg1], [arg2], [arg3]
+   536                              <1> 
+   537 000002F2 A1[B00F0000]        <1>  mov eax, %1
+   538 000002F7 8B1D[B40F0000]      <1>  mov ebx, %2
+   539 000002FD 8B0D[B80F0000]      <1>  mov ecx, %3
+   540                              <1> 
+   541 00000303 83F92B              <1>  cmp ecx, dword '+'
+   542 00000306 740C                <1>  je %%opAdd
    543                              <1> 
-   544 00000307 83F92B              <1>  cmp ecx, dword '+'
-   545 0000030A 740C                <1>  je %%opAdd
+   544 00000308 83F92D              <1>  cmp ecx, dword '-'
+   545 0000030B 740B                <1>  je %%opSub
    546                              <1> 
-   547 0000030C 83F92D              <1>  cmp ecx, dword '-'
-   548 0000030F 740B                <1>  je %%opSub
+   547 0000030D 83F92A              <1>  cmp ecx, dword '*'
+   548 00000310 740A                <1>  je %%opMul
    549                              <1> 
-   550 00000311 83F92A              <1>  cmp ecx, dword '*'
-   551 00000314 740A                <1>  je %%opMul
-   552                              <1> 
-   553 00000316 EB0C                <1>  jmp %%opDiv
-   554                              <1> 
-   555                              <1>  %%opAdd:
-   556 00000318 01D8                <1>  add eax, ebx
-   557 0000031A EB21                <1>  jmp %%ret
-   558                              <1> 
-   559                              <1>  %%opSub:
-   560 0000031C 29D8                <1>  sub eax, ebx
-   561 0000031E EB1D                <1>  jmp %%ret
-   562                              <1> 
-   563                              <1>  %%opMul:
-   564 00000320 F7EB                <1>  imul ebx
-   565 00000322 EB19                <1>  jmp %%ret
-   566                              <1> 
-   567                              <1>  %%opDiv:
-   568 00000324 83FB00              <1>  cmp ebx, dword 0
-   569 00000327 750F                <1>  jne %%nextDiv
-   570                              <1> 
-   571 00000329 C705[00000000]0100- <1>  mov [divZero], dword 1
-   572 00000331 0000                <1>
-   573 00000333 BB01000000          <1>  mov ebx, dword 1
-   574                              <1> 
-   575                              <1>  %%nextDiv:
-   576 00000338 99                  <1>  cdq
-   577 00000339 F7FB                <1>  idiv ebx
-   578 0000033B EB00                <1>  jmp %%ret
-   579                              <1> 
-   580                              <1>  %%ret:
-   581 0000033D A3[AC0F0000]        <1>  mov [return], eax
-   582                              <1> 
-   583 00000342 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
-   584                                  
-   585                                      	;push result onto numStack
-   586                                          numStack.push edx
-   587 00000348 8B1D[10000000]      <1>  mov ebx, [numSize]
-   588 0000034E 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
-   589 00000355 43                  <1>  inc ebx
-   590 00000356 891D[10000000]      <1>  mov [numSize], ebx
+   550 00000312 EB0C                <1>  jmp %%opDiv
+   551                              <1> 
+   552                              <1>  %%opAdd:
+   553 00000314 01D8                <1>  add eax, ebx
+   554 00000316 EB1F                <1>  jmp %%ret
+   555                              <1> 
+   556                              <1>  %%opSub:
+   557 00000318 29D8                <1>  sub eax, ebx
+   558 0000031A EB1B                <1>  jmp %%ret
+   559                              <1> 
+   560                              <1>  %%opMul:
+   561 0000031C F7EB                <1>  imul ebx
+   562 0000031E EB17                <1>  jmp %%ret
+   563                              <1> 
+   564                              <1>  %%opDiv:
+   565 00000320 83FB00              <1>  cmp ebx, dword 0
+   566 00000323 750F                <1>  jne %%nextDiv
+   567                              <1> 
+   568 00000325 C705[00000000]0100- <1>  mov [divZero], dword 1
+   569 0000032D 0000                <1>
+   570 0000032F BB01000000          <1>  mov ebx, dword 1
+   571                              <1> 
+   572                              <1>  %%nextDiv:
+   573 00000334 99                  <1>  cdq
+   574 00000335 F7FB                <1>  idiv ebx
+   575                              <1> 
+   576                              <1>  %%ret:
+   577 00000337 A3[AC0F0000]        <1>  mov [return], eax
+   578                              <1> 
+   579 0000033C 8B15[AC0F0000]              	mov edx, [return]				; edx = applyOp(arg1,arg2,arg3)
+   580                                  
+   581                                      	;push result onto numStack
+   582                                          numStack.push edx
+   583 00000342 8B1D[10000000]      <1>  mov ebx, [numSize]
+   584 00000348 89149D[D8070000]    <1>  mov [numStack+ebx*4], %1
+   585 0000034F 43                  <1>  inc ebx
+   586 00000350 891D[10000000]      <1>  mov [numSize], ebx
+   587                                  
+   588 00000356 E939FFFFFF                  	jmp loop3
+   589                                  
+   590                                      endLoop3:
    591                                  
-   592 0000035C E937FFFFFF                  	jmp loop3
-   593                                  
-   594                                      endLoop3:
-   595                                  
-   596 00000361 833D[00000000]01            	cmp [divZero], dword 1
-   597 00000368 0F84CE000000                	je errorZero
-   598                                  
-   599 0000036E B804000000                  	mov eax, 4
-   600 00000373 BB01000000                  	mov ebx, 1
-   601 00000378 B9[18000000]                	mov ecx, wfe
-   602 0000037D BA0E000000                  	mov edx, 14
-   603 00000382 CD80                        	int 80h
-   604                                  
-   605 00000384 A1[D8070000]                	mov eax, [numStack]
-   606 00000389 A3[04000000]                	mov [res], eax
-   607                                      	imprimeInt
-   608                              <1>  %%itoa:
-   609 0000038E 8925[00000000]      <1>  mov [stackpointer], esp
-   610 00000394 833D[04000000]00    <1>  cmp dword[res], 0
-   611 0000039B 7449                <1>  je %%itoa.zero
-   612 0000039D 7C4F                <1>  jl %%itoa.neg
-   613                              <1> 
-   614                              <1>  %%itoa.nonzero:
-   615 0000039F 31D2                <1>  xor edx, edx
-   616 000003A1 A1[04000000]        <1>  mov eax, dword[res]
-   617 000003A6 F735[0C000000]      <1>  div dword[base]
-   618                              <1> 
-   619 000003AC 52                  <1>  push edx
-   620                              <1> 
-   621 000003AD 83F800              <1>  cmp eax, 0
-   622 000003B0 7407                <1>  je %%itoa.write
-   623 000003B2 A3[04000000]        <1>  mov [res], eax
-   624 000003B7 EBE6                <1>  jmp %%itoa.nonzero
-   625                              <1> 
-   626                              <1>  %%itoa.write:
-   627 000003B9 3925[00000000]      <1>  cmp dword[stackpointer], esp
-   628 000003BF 744B                <1>  je %%fim.macro
-   629 000003C1 8F05[04000000]      <1>  pop dword[res]
-   630 000003C7 8305[04000000]30    <1>  add dword[res], 0x30
-   631                              <1>  saida res
-   632 000003CE B804000000          <2>  mov eax, 4
-   633 000003D3 BB01000000          <2>  mov ebx, 1
-   634 000003D8 B9[04000000]        <2>  mov ecx, %1
-   635 000003DD BA01000000          <2>  mov edx, 1
-   636 000003E2 CD80                <2>  int 80h
-   637 000003E4 EBD3                <1>  jmp %%itoa.write
+   592 0000035B 833D[00000000]01            	cmp [divZero], dword 1
+   593 00000362 0F84CE000000                	je errorZero
+   594                                  
+   595 00000368 B804000000                  	mov eax, 4
+   596 0000036D BB01000000                  	mov ebx, 1
+   597 00000372 B9[18000000]                	mov ecx, wfe
+   598 00000377 BA0E000000                  	mov edx, 14
+   599 0000037C CD80                        	int 80h
+   600                                  
+   601 0000037E A1[D8070000]                	mov eax, [numStack]
+   602 00000383 A3[04000000]                	mov [res], eax
+   603                                      	imprimeInt
+   604                              <1>  %%itoa:
+   605 00000388 8925[00000000]      <1>  mov [stackpointer], esp
+   606 0000038E 833D[04000000]00    <1>  cmp dword[res], 0
+   607 00000395 7449                <1>  je %%itoa.zero
+   608 00000397 7C4F                <1>  jl %%itoa.neg
+   609                              <1> 
+   610                              <1>  %%itoa.nonzero:
+   611 00000399 31D2                <1>  xor edx, edx
+   612 0000039B A1[04000000]        <1>  mov eax, dword[res]
+   613 000003A0 F735[0C000000]      <1>  div dword[base]
+   614                              <1> 
+   615 000003A6 52                  <1>  push edx
+   616                              <1> 
+   617 000003A7 83F800              <1>  cmp eax, 0
+   618 000003AA 7407                <1>  je %%itoa.write
+   619 000003AC A3[04000000]        <1>  mov [res], eax
+   620 000003B1 EBE6                <1>  jmp %%itoa.nonzero
+   621                              <1> 
+   622                              <1>  %%itoa.write:
+   623 000003B3 3925[00000000]      <1>  cmp dword[stackpointer], esp
+   624 000003B9 744B                <1>  je %%fim.macro
+   625 000003BB 8F05[04000000]      <1>  pop dword[res]
+   626 000003C1 8305[04000000]30    <1>  add dword[res], 0x30
+   627                              <1>  saida res
+   628 000003C8 B804000000          <2>  mov eax, 4
+   629 000003CD BB01000000          <2>  mov ebx, 1
+   630 000003D2 B9[04000000]        <2>  mov ecx, %1
+   631 000003D7 BA01000000          <2>  mov edx, 1
+   632 000003DC CD80                <2>  int 80h
+   633 000003DE EBD3                <1>  jmp %%itoa.write
+   634                              <1> 
+   635                              <1>  %%itoa.zero:
+   636 000003E0 FF35[04000000]      <1>  push dword[res]
+   637 000003E6 EBCB                <1>  jmp %%itoa.write
    638                              <1> 
-   639                              <1>  %%itoa.zero:
-   640 000003E6 FF35[04000000]      <1>  push dword[res]
-   641 000003EC EBCB                <1>  jmp %%itoa.write
-   642                              <1> 
-   643                              <1>  %%itoa.neg:
-   644                              <1>  saida minus
-   645 000003EE B804000000          <2>  mov eax, 4
-   646 000003F3 BB01000000          <2>  mov ebx, 1
-   647 000003F8 B9[08000000]        <2>  mov ecx, %1
-   648 000003FD BA01000000          <2>  mov edx, 1
-   649 00000402 CD80                <2>  int 80h
-   650 00000404 F71D[04000000]      <1>  neg dword[res]
-   651 0000040A EB93                <1>  jmp %%itoa.nonzero
-   652                              <1> 
-   653                              <1>  %%fim.macro:
-   654                                          saida newline
-   655 0000040C B804000000          <1>  mov eax, 4
-   656 00000411 BB01000000          <1>  mov ebx, 1
-   657 00000416 B9[04000000]        <1>  mov ecx, %1
-   658 0000041B BA01000000          <1>  mov edx, 1
-   659 00000420 CD80                <1>  int 80h
-   660                                  
-   661 00000422 EB30                        	jmp exit
-   662                                  
-   663                                  errorPar:
-   664 00000424 B804000000                  mov eax, 4
-   665 00000429 BB01000000                  mov ebx, 1
-   666 0000042E B9[26000000]                mov ecx, bfe
-   667 00000433 BA15000000                  mov edx, 21
-   668 00000438 CD80                        int 80h
+   639                              <1>  %%itoa.neg:
+   640                              <1>  saida minus
+   641 000003E8 B804000000          <2>  mov eax, 4
+   642 000003ED BB01000000          <2>  mov ebx, 1
+   643 000003F2 B9[08000000]        <2>  mov ecx, %1
+   644 000003F7 BA01000000          <2>  mov edx, 1
+   645 000003FC CD80                <2>  int 80h
+   646 000003FE F71D[04000000]      <1>  neg dword[res]
+   647 00000404 EB93                <1>  jmp %%itoa.nonzero
+   648                              <1> 
+   649                              <1>  %%fim.macro:
+   650                                          saida newline
+   651 00000406 B804000000          <1>  mov eax, 4
+   652 0000040B BB01000000          <1>  mov ebx, 1
+   653 00000410 B9[04000000]        <1>  mov ecx, %1
+   654 00000415 BA01000000          <1>  mov edx, 1
+   655 0000041A CD80                <1>  int 80h
+   656                                  
+   657 0000041C EB30                        	jmp exit
+   658                                  
+   659                                  errorPar:
+   660 0000041E B804000000                  mov eax, 4
+   661 00000423 BB01000000                  mov ebx, 1
+   662 00000428 B9[26000000]                mov ecx, bfe
+   663 0000042D BA15000000                  mov edx, 21
+   664 00000432 CD80                        int 80h
+   665                                  
+   666 00000434 EB18                        jmp exit
+   667                                  
+   668                                  errorZero:
    669                                  
-   670 0000043A EB18                        jmp exit
-   671                                  
-   672                                  errorZero:
-   673                                  
-   674 0000043C B804000000              	mov eax, 4
-   675 00000441 BB01000000              	mov ebx, 1
-   676 00000446 B9[3B000000]            	mov ecx, zfe
-   677 0000044B BA1B000000              	mov edx, 27
-   678 00000450 CD80                    	int 80h
-   679                                  
-   680 00000452 EB00                    	jmp exit 
-   681                                  
-   682                                  exit:
-   683 00000454 B801000000                  mov eax, 1
-   684 00000459 31DB                        xor ebx, ebx
-   685 0000045B CD80                        int 80h
-   686                                  
-   687                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
+   670 00000436 B804000000              	mov eax, 4
+   671 0000043B BB01000000              	mov ebx, 1
+   672 00000440 B9[3B000000]            	mov ecx, zfe
+   673 00000445 BA1B000000              	mov edx, 27
+   674 0000044A CD80                    	int 80h
+   675                                  
+   676 0000044C EB00                    	jmp exit 
+   677                                  
+   678                                  exit:
+   679 0000044E B801000000                  mov eax, 1
+   680 00000453 31DB                        xor ebx, ebx
+   681 00000455 CD80                        int 80h
+   682                                  
+   683                                  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
